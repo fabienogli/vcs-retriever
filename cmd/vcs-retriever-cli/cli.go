@@ -7,6 +7,7 @@ import (
 	"os"
 
 	vcsretriever "github.com/fabienogli/vcs-retriever"
+	"github.com/fabienogli/vcs-retriever/github"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 	"github.com/tmc/langchaingo/llms/ollama"
@@ -82,23 +83,7 @@ func runWithAI(ctx context.Context, username string) error {
 		return fmt.Errorf("when ollama.New: %w", err)
 	}
 
-	repos, err := vcsretriever.GetRepos(username)
-	if err != nil {
-		return fmt.Errorf("erreur getRepos: %w", err)
-	}
-
-	// Pour chaque projet, récupérer et afficher le README
-	for _, repo := range repos {
-		log.Printf("trying to describe %+v\n", repo)
-		description, err := vcsretriever.DescribeGitHubRepoWithIA(ctx, llm, repo, filter)
-		if err != nil {
-			fmt.Printf("when describeGitHubRepo: %v\n", err)
-			continue
-		}
-		fmt.Printf("Description generated: %s\n", description)
-		fmt.Println("----------------------------------------")
-	}
-	return nil
+	return vcsretriever.SummarizeRepos(ctx, username, llm, filter)
 }
 
 func runGithub(ctx context.Context, username string) error {
@@ -113,15 +98,17 @@ func runGithub(ctx context.Context, username string) error {
 		return fmt.Errorf("⚠️ le token GitHub n'est pas défini !")
 	}
 
-	pinnedResponse, err := vcsretriever.GetPinnedRepositories(token, username)
+	pinnedResponse, err := github.GetPinnedRepositories(token, username)
 
 	if err != nil {
 		return fmt.Errorf("when vcsretriever.GetPinnedRepositories: %w", err)
 	}
 
+	repos := vcsretriever.FromPinned(pinnedResponse, username)
+
 	// Print response
 	fmt.Println("Pinned Repositories:")
-	for _, node := range pinnedResponse {
+	for _, node := range repos {
 		fmt.Println("node: ", node)
 		readme, err := vcsretriever.ReadmeToByte(node)
 		if err != nil {

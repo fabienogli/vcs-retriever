@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/fabienogli/vcs-retriever/github"
 	"github.com/yuin/goldmark"
 )
 
 func ReadmeToByte(repo Repository) ([]byte, error) {
-	readmeBody, err := RetrievingReadme(repo)
+	readmeBody, err := github.RetrievingReadme(repo.User, repo.Name)
 	if err != nil {
 		return nil, fmt.Errorf("when retrievingReadme: %w", err)
 	}

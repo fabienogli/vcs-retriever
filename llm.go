@@ -8,6 +8,8 @@ import (
 	"github.com/tmc/langchaingo/llms"
 )
 
+type FilterReponse func(string) string
+
 func DeepseekFilter() (FilterReponse, error) {
 	// Regex pour extraire tout ce qui suit la balise </think>
 	re, err := regexp.Compile(`(?s)<think>.*?</think>\n?`)

@@ -9,4 +9,5 @@ type Repository struct {
 	User            string
 	PrimaryLanguage string
 	Readme          []byte
+	AISummary       string
 }

@@ -1,16 +1,12 @@
-package vcsretriever
+package github
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"time"
-
-	"github.com/tmc/langchaingo/llms"
 )
 
 // Structure pour représenter un dépôt GitHub
@@ -25,9 +21,7 @@ type Repo struct {
 	Readme []byte `json:"readme"`
 }
 
-type FilterReponse func(string) string
-
-func GetRepos(username string) ([]Repository, error) {
+func GetRepos(username string) ([]Repo, error) {
 	// URL pour obtenir les repos publics d'un utilisateur GitHub
 	url := fmt.Sprintf("https://api.github.com/users/%s/repos?type=public", username)
 
@@ -49,17 +43,7 @@ func GetRepos(username string) ([]Repository, error) {
 	if err := json.Unmarshal(body, &repos); err != nil {
 		return nil, fmt.Errorf("when json.Unmarshal: %w", err)
 	}
-	repositories := make([]Repository, len(repos))
-	for i, repo := range repos {
-		repositories[i] = Repository{
-			Name:        repo.Name,
-			FullName:    repo.FullName,
-			Description: repo.Description,
-			URL:         repo.HTMLURL,
-			User:        username,
-		}
-	}
-	return repositories, nil
+	return repos, nil
 }
 
 func (r Repo) String() string {
@@ -69,8 +53,8 @@ URL du dépôt : %s
 `, r.Name, r.Description, r.HTMLURL)
 }
 
-func RetrievingReadme(repo Repository) ([]byte, error) {
-	readmeURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/refs/heads/master/README.md", repo.User, repo.Name)
+func RetrievingReadme(username, repoName string) ([]byte, error) {
+	readmeURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/refs/heads/master/README.md", username, repoName)
 	readmeResp, err := http.Get(readmeURL)
 	log.Println(readmeURL)
 	if err != nil {
@@ -90,26 +74,6 @@ func RetrievingReadme(repo Repository) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("readme not found")
-}
-
-// Fonction pour décrire un repository GitHub à l'aide d'un modèle LLM
-func DescribeGitHubRepoWithIA(ctx context.Context, model llms.Model, repo Repository, filter FilterReponse) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-	readme, err := ReadmeToByte(repo)
-	if err != nil {
-		return "", fmt.Errorf("when converting repo: %w", err)
-	}
-	repo.Readme = readme
-
-	prompt := generatePrompt(repo)
-
-	// Interroger l'LLM via Ollama
-	description, err := queryOllamaLLM(ctx, model, prompt)
-	if err != nil {
-		return "", fmt.Errorf("when queryOllamaLLM: %w", err)
-	}
-	return filter(description), nil
 }
 
 // GitHub GraphQL API URL
@@ -141,14 +105,14 @@ type PinnedRepositoriesResponse struct {
 }
 
 // Replace USERNAME with the actual GitHub username
-func GetPinnedRepositories(token string, username string) ([]Repository, error) {
+func GetPinnedRepositories(token string, username string) (PinnedRepositoriesResponse, error) {
 	// Replace username dynamically
 	replacedQuery := bytes.Replace([]byte(query), []byte("USERNAME"), []byte(username), -1)
 
 	// Create a new request
 	req, err := http.NewRequest("POST", githubGraphQLAPI, bytes.NewBuffer(replacedQuery))
 	if err != nil {
-		return nil, fmt.Errorf("when http.NewRequest: %w", err)
+		return PinnedRepositoriesResponse{}, fmt.Errorf("when http.NewRequest: %w", err)
 	}
 
 	// Set headers
@@ -159,29 +123,20 @@ func GetPinnedRepositories(token string, username string) ([]Repository, error) 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("when client.Do: %w", err)
+		return PinnedRepositoriesResponse{}, fmt.Errorf("when client.Do: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// Read response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("when io.ReadAll: %w", err)
+		return PinnedRepositoriesResponse{}, fmt.Errorf("when io.ReadAll: %w", err)
 	}
 	var pinnedResponse PinnedRepositoriesResponse
 	err = json.Unmarshal(body, &pinnedResponse)
 	if err != nil {
-		return nil, fmt.Errorf("when json.Unmarshal(%s): %w", string(body), err)
+		return PinnedRepositoriesResponse{}, fmt.Errorf("when json.Unmarshal(%s): %w", string(body), err)
 	}
-	repositories := make([]Repository, len(pinnedResponse.Data.User.PinnedItems.Nodes))
-	for i, node := range pinnedResponse.Data.User.PinnedItems.Nodes {
-		repositories[i] = Repository{
-			Name:            node.Name,
-			Description:     node.Description,
-			URL:             node.URL,
-			User:            username,
-			PrimaryLanguage: node.PrimaryLanguage.Name,
-		}
-	}
-	return repositories, nil
+
+	return pinnedResponse, nil
 }
