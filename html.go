@@ -1,9 +1,26 @@
 package vcsretriever
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+
+	"github.com/yuin/goldmark"
 )
+
+func ReadmeToByte(repo Repository) ([]byte, error) {
+	readmeBody, err := RetrievingReadme(repo)
+	if err != nil {
+		return nil, fmt.Errorf("when retrievingReadme: %w", err)
+	}
+	var buf bytes.Buffer
+	err = goldmark.Convert(readmeBody, &buf)
+	if err != nil {
+		return nil, fmt.Errorf("when goldmark.Convert: %w", err)
+	}
+	return buf.Bytes(), nil
+	// fmt.Printf("README pour %s :\n%s\n", repo.Name, string(buf.Bytes()))
+}
 
 // Fonction pour écrire plusieurs contenus HTML dans un fichier
 func writeHTMLToFile(filePath string, htmlContents [][]byte) error {

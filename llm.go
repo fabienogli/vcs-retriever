@@ -10,32 +10,27 @@ import (
 
 func DeepseekFilter() (FilterReponse, error) {
 	// Regex pour extraire tout ce qui suit la balise </think>
-	re, err := regexp.Compile(`(</think>)(.*)`)
+	re, err := regexp.Compile(`(?s)<think>.*?</think>\n?`)
 	if err != nil {
 		return nil, fmt.Errorf("when regexp.Compile: %w", err)
 	}
-	return func(s string) string {
-		// Trouver le match
-		match := re.FindStringSubmatch(s)
 
-		// Si un match est trouvé, afficher le texte extrait
-		if len(match) > 1 {
-			return match[1]
-		}
-		return s
+	return func(s string) string {
+		return re.ReplaceAllString(s, "")
 	}, nil
 }
 
-func generatePrompt(repo Repo) string {
+func generatePrompt(repo Repository) string {
 	// Créer un prompt pour décrire le repository en utilisant le modèle LLM
 	return fmt.Sprintf(`
 You are an assistant that help to describe a Github repository, which are files written in software developpement language.
-Your goal is to describe best the project. The most import thing of this project is the Readme, which is the introduction to the project.
+Your goal is to generate a description of the project. 
+To help you do that, by order you can use the Readme, which is the introduction to the project.
 Here is the Readme:
 %s
 ----------------------------
 The title %q and the description %q could help but are less important than the Readme above.
-Your description should be limited to 100 characters.`, repo.Readme, repo.FullName, repo.Description)
+The description should be limited to 1000 characters.`, repo.Readme, repo.Name, repo.Description)
 }
 
 // Fonction pour interroger un modèle LLM via Ollama

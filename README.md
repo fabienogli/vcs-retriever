@@ -1,14 +1,19 @@
 # VCS-RETRIEVER 
 
-## 1. Project Overview  
+## Project Overview  
 This repository is designed to enable users to explore github profile and to summarize their github projects.
 
-## 2. Key Features  
+##  Key Features  
 
-### A. Retrievieng all the repositories from a user  
-### B. LLM Capabilities - using LLM to summarize the project
+###  Retrievieng all the repositories from a user  
+###  LLM Capabilities - using LLM to summarize the project
 
-## 3. Roadmap 
+## Usage
+Run
+```bash
+go run cmd/vcs-retriever-cli/cli.go --help
+```
+## Roadmap 
 - Summarize the project only using the readme (without AI)
 - - you should add blacklist/whitelist to avoid/select which repositories to exclude/include
 - Summarize the project by providing the readme to the LLM model
